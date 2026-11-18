@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Collect Rare Pets - Members</title>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; color: #fff; font-family: Inter, Arial, sans-serif;
+    background: linear-gradient(110deg, #2b2f06 0%, #14161c 45%, #05052e 100%); }
+  header { display: flex; justify-content: space-between; align-items: baseline; padding: 24px 48px 0; }
+  #title { margin: 0; font-size: 44px; }
+  #date { font-size: 36px; font-weight: 700; }
+  .counters { display: flex; gap: 120px; padding: 10px 48px 0; }
+  .label { display: block; font-size: 24px; opacity: .7; }
+  #members, #gain { font-size: 96px; font-weight: 800; line-height: 1.1; }
+  #gain { color: #7dd3fc; }
+  svg { color: #cbd5e1; }
+  .line { stroke-linecap: round; }
+  #members-chart { padding: 10px 0 0 40px; }
+  #gains-chart { padding: 0 0 0 40px; }
+</style>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="data.js"></script>
+<script src="../../statical.js"></script>
+<script>
+  // Rebuild the series from compact data (members = base + running sum of gains)
+  const SHOW_UTC_OFFSET_HOURS = 7; // ICT
+  const START = Date.parse(data.start), STEP = data.stepMinutes * 60000;
+  const gains = data.gains;
+  const members = gains.reduce((a, g, i) => (a.push(i ? a[i - 1] + g : data.base), a), []);
+  // Shift by the offset and format as UTC so the axis and timestamp read in ICT on any machine
+  const dates = gains.map((_, i) => new Date(START + i * STEP + SHOW_UTC_OFFSET_HOURS * 3600000));
+
+  const VIDEO_SECONDS = 90;
+  const DPMS = Math.round((VIDEO_SECONDS * 1000) / dates.length);
+  const valueTypes = { count: (v) => v.toLocaleString("en-US") };
+
+  const axisStyle = { fontSize: "18px" };
+  const charts = {
+    limit: 144, // 24h window at 10-min steps
+    membersChart: {
+      style: { width: 1750, height: 470, marginLeft: 110, marginRight: 40, marginTop: 20, marginBottom: 40 },
+      x: { style: axisStyle }, y: { style: axisStyle },
+      lines: { color: "#f3d9c0", style: { strokeWidth: 5 } },
+    },
+    gainsChart: {
+      style: { width: 1750, height: 190, marginLeft: 110, marginRight: 40, marginTop: 10, marginBottom: 40 },
+      x: { style: axisStyle }, y: { style: axisStyle },
+      lines: { color: "#7dd3fc", style: { strokeWidth: 4 } },
+    },
+  };
+
+  // statical.js builds a local-time scale; swap in a UTC one so the shifted dates display as ICT
+  statical.addEventListener("create-chart", (e) => {
+    const c = charts[e.detail.chart];
+    c.x.scale = d3.scaleUtc().domain(c.x.scale.domain()).range([0, c.style.width]);
+  });
+
+  document.addEventListener("DOMContentLoaded", () => {
+    changeText("members", members[0].toLocaleString("en-US"));
+    changeText("gain", "+" + gains[0].toLocaleString("en-US"));
+  });
+
+  function update() {
+    animateValue("members", members[pastIndex], members[index]);
+    animateValue("gain", gains[pastIndex], gains[index], { prefix: "+" });
+    changeText("date", dates[index].toISOString().slice(0, 16).replace("T", " ") + " ICT");
+  }
+
+  function animateCharts() {
+    updateChart("membersChart", parseFloat(getText("members")));
+    updateChart("gainsChart", parseFloat(getText("gain")));
+  }
+</script>
+</head>
+<body>
+  <header><h1 id="title">&hellip; and Collect Rare Pets</h1><div id="date"></div></header>
+  <section class="counters">
+    <div><span class="label">Members</span><span id="members">0</span></div>
+    <div><span class="label">Gained in last 10 min</span><span id="gain">+0</span></div>
+  </section>
+  <div id="members-chart"></div>
+  <div id="gains-chart"></div>
+</body>
+</html>
